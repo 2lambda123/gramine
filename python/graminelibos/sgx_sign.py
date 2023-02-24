@@ -73,23 +73,23 @@ def parse_size(value):
 def collect_bits(manifest_sgx, options_dict):
     val = 0
     for opt, bits in options_dict.items():
-        if manifest_sgx.get(opt, 0) == 1:
+        if manifest_sgx.get(opt) is True:
             val |= bits
     return val
 
 
-def collect_cpu_feature_bits(manifest_sgx, options_dict):
-    val, mask = offs.SGX_XFRM_LEGACY, offs.SGX_XFRM_MASK_CONST
-    if manifest_sgx.get('cpu_features') is None:
-        return val, mask
-
+def collect_cpu_feature_bits(manifest_sgx, options_dict, val, mask, security_hardening):
     for opt, bits in options_dict.items():
-        if manifest_sgx['cpu_features'].get(opt, "") == "required":
+        if manifest_sgx['cpu_features'].get(opt) is None:
+            continue
+        if manifest_sgx['cpu_features'][opt] == "required":
             val |= bits
             mask |= bits
-        elif manifest_sgx['cpu_features'].get(opt, "") == "disabled":
+        elif manifest_sgx['cpu_features'][opt] == "disabled":
             val &= ~bits
             mask |= bits
+        elif security_hardening or manifest_sgx['cpu_features'][opt] != "unspecified":
+            raise KeyError(f'Manifest option `sgx.cpu_features.{opt}` has disallowed value')
     return val, mask
 
 
@@ -106,16 +106,7 @@ def get_enclave_attributes(manifest_sgx):
     }
     miscs = collect_bits(manifest_sgx, miscs_dict)
 
-    xfrms_dict = {
-        'avx': offs.SGX_XFRM_AVX,
-        'avx512': offs.SGX_XFRM_AVX512,
-        'mpx': offs.SGX_XFRM_MPX,
-        'pkru': offs.SGX_XFRM_PKRU,
-        'amx': offs.SGX_XFRM_AMX,
-    }
-    xfrms, xfrms_mask = collect_cpu_feature_bits(manifest_sgx, xfrms_dict)
-
-    # TODO: these were deprecated in release v1.3, so they should be removed in v1.5
+    # TODO: these were deprecated in release v1.4, so they should be removed in v1.6
     deprecated_xfrms_dict = {
         'require_avx': offs.SGX_XFRM_AVX,
         'require_avx512': offs.SGX_XFRM_AVX512,
@@ -123,7 +114,28 @@ def get_enclave_attributes(manifest_sgx):
         'require_pkru': offs.SGX_XFRM_PKRU,
         'require_amx': offs.SGX_XFRM_AMX,
     }
-    xfrms |= collect_bits(manifest_sgx, deprecated_xfrms_dict)
+    xfrms_dict = {
+        'avx': offs.SGX_XFRM_AVX,
+        'avx512': offs.SGX_XFRM_AVX512,
+        'amx': offs.SGX_XFRM_AMX,
+    }
+    secure_xfrms_dict = {
+        'mpx': offs.SGX_XFRM_MPX,
+        'pkru': offs.SGX_XFRM_PKRU,
+    }
+
+    xfrms, xfrms_mask = offs.SGX_XFRM_LEGACY, offs.SGX_XFRM_MASK_CONST
+    if manifest_sgx.get('cpu_features') is None:
+        # collect deprecated `sgx.require_xxx` options; remove this in v1.6
+        xfrms |= collect_bits(manifest_sgx, deprecated_xfrms_dict)
+    else:
+        for deprecated_key in deprecated_xfrms_dict:
+            if deprecated_key in manifest_sgx:
+                raise KeyError(f'`sgx.cpu_features` cannot coexist with `sgx.{deprecated_key}`')
+        xfrms, xfrms_mask = collect_cpu_feature_bits(manifest_sgx, xfrms_dict, xfrms, xfrms_mask,
+                                                     security_hardening=False)
+        xfrms, xfrms_mask = collect_cpu_feature_bits(manifest_sgx, secure_xfrms_dict, xfrms,
+                                                     xfrms_mask, security_hardening=True)
 
     return flags, miscs, xfrms, xfrms_mask
 

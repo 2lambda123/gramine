@@ -97,9 +97,9 @@ typedef uint8_t sgx_isvfamily_id_t[SGX_ISV_FAMILY_ID_SIZE];
  * SIGSTRUCT.ATTRIBUTES[127..64].
  *
  * This default XFRM mask may be modified via the manifest options `sgx.cpu_features.[feature]`. If
- * the manifest option for some feature is set to "required", then the corresponding bits in the
- * XFRM mask are set. If the manifest option is set to "disabled", then the corresponding bits are
- * unset.
+ * the manifest option for some feature is set to "required" or "disabled", then the corresponding
+ * bits in the XFRM mask are set. If the manifest option is set to "unspecified", then the
+ * corresponding bits are unset.
  *
  * Notes:
  *   - Verified bits include: bit 0 + bit 1 (X87 + SSE, always enabled in SGX), bit 3 + bit 4

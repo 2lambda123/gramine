@@ -572,11 +572,11 @@ The ``"required"`` syntax ensures that the CPU feature is available and enabled
 for the enclave. If such option is set in the manifest but the CPU feature is
 unavailable on the platform, enclave initialization will fail.
 
-In case of doubt, it is recommended to keep the default values for these
-features. In this case, Gramine auto-detects the corresponding
-not-security-hardening CPU features on the platform and enables them if
-available, and disables security-hardening CPU features. This allows the SGX
-enclave to be executed on the widest range of platforms.
+When in doubt, it is recommended to keep the default values for these features.
+In this case, Gramine auto-detects the corresponding not-security-hardening CPU
+features on the platform and enables them if available, and disables
+security-hardening CPU features. This allows the SGX enclave to be executed on
+the widest range of platforms.
 
 At the technical level, the mapping from CPU features to SGX fields is as
 follows:
@@ -1001,3 +1001,13 @@ Optional CPU features (deprecated syntax)
 This syntax specified whether to require certain CPU features to be available on
 the platform where the enclave executes. This syntax has been replaced with
 ``sgx.cpu_features.[avx|avx512|mpx|pkru|amx]``.
+
+.. note ::
+   Previously, security-hardening features (MPX and PKRU) were underspecified.
+   For example, ``sgx.require_mpx = false`` meant that the MPX feature was
+   always disabled inside the enclave (regardless of whether the CPU supported
+   it or not), and ``sgx.require_mpx = true`` meant that the MPX feature was
+   always enabled inside the enclave (even if the CPU did not support it, which
+   would result in enclave failures). This is in contrast to
+   non-security-hardening features (AVX, AVX512, AMX) which could be
+   "unspecified". The new manifest syntax fixes this ambiguity.
